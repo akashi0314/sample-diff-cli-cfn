@@ -1,0 +1,19 @@
+=== AWS CLI による構築結果 ===
+構築日時: Tue, Jul 29, 2025 11:55:16 AM
+リージョン: us-east-1
+EC2インスタンス ID: i-0c9f7ea24bc72faf3
+SSM Session Manager接続コマンド:
+aws ssm start-session --target i-0c9f7ea24bc72faf3 --region us-east-1
+作成されたリソース詳細:
+  vpc: vpc-0966a244c35a5e178 (CloudFormationDemo-cli-vpc)
+  private_subnet: subnet-0078adcbb2c443427 (CloudFormationDemo-cli-private-subnet)
+  instance_sg: sg-07db6bccf828423e5 (CloudFormationDemo-cli-instance-sg)
+  vpc_endpoint_sg: sg-09ca98941025bb969 (CloudFormationDemo-cli-vpc-endpoint-sg)
+  iam_role: CloudFormationDemo-cli-ec2-ssm-role-us-east-1 (CloudFormationDemo-cli-ec2-ssm-role-us-east-1)
+  instance_profile: CloudFormationDemo-cli-ec2-instance-profile-us-east-1 (CloudFormationDemo-cli-ec2-instance-profile-us-east-1)
+  ssm_endpoint: vpce-09c8b6d7f72b5b9c9 (ssm-endpoint)
+  ssm_messages_endpoint: vpce-01a06faa0bd848b69 (ssm-messages-endpoint)
+  ec2_messages_endpoint: vpce-0a2c965bda337956a (ec2-messages-endpoint)
+  ec2_instance: i-0c9f7ea24bc72faf3 (CloudFormationDemo-cli-instance)
+注意: このスクリプトで作成したリソースは個別に削除する必要があります
+CloudFormationと異なり、一括削除機能はありません

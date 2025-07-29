@@ -1,0 +1,42 @@
+{
+  "vpc": {
+    "id": "vpc-0966a244c35a5e178",
+    "name": "CloudFormationDemo-cli-vpc"
+  },
+  "private_subnet": {
+    "id": "subnet-0078adcbb2c443427",
+    "name": "CloudFormationDemo-cli-private-subnet"
+  },
+  "instance_sg": {
+    "id": "sg-07db6bccf828423e5",
+    "name": "CloudFormationDemo-cli-instance-sg"
+  },
+  "vpc_endpoint_sg": {
+    "id": "sg-09ca98941025bb969",
+    "name": "CloudFormationDemo-cli-vpc-endpoint-sg"
+  },
+  "iam_role": {
+    "id": "CloudFormationDemo-cli-ec2-ssm-role-us-east-1",
+    "name": "CloudFormationDemo-cli-ec2-ssm-role-us-east-1"
+  },
+  "instance_profile": {
+    "id": "CloudFormationDemo-cli-ec2-instance-profile-us-east-1",
+    "name": "CloudFormationDemo-cli-ec2-instance-profile-us-east-1"
+  },
+  "ssm_endpoint": {
+    "id": "vpce-09c8b6d7f72b5b9c9",
+    "name": "ssm-endpoint"
+  },
+  "ssm_messages_endpoint": {
+    "id": "vpce-01a06faa0bd848b69",
+    "name": "ssm-messages-endpoint"
+  },
+  "ec2_messages_endpoint": {
+    "id": "vpce-0a2c965bda337956a",
+    "name": "ec2-messages-endpoint"
+  },
+  "ec2_instance": {
+    "id": "i-0c9f7ea24bc72faf3",
+    "name": "CloudFormationDemo-cli-instance"
+  }
+}

@@ -1,52 +1,178 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC + EC2 demo for CloudFormation training - Private subnet with SSM'
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "環境設定"
+        Parameters:
+          - ProjectTag
+          - EnvironmentTag
+      - Label:
+          default: "ネットワーク設定"
+        Parameters:
+          - VpcCidr
+          - PrivateSubnetCidr
+          - AvailabilityZone
+      - Label:
+          default: "EC2設定"
+        Parameters:
+          - InstanceType
+          - LatestAmiId
+    ParameterLabels:
+      ProjectTag:
+        default: "プロジェクト名"
+      EnvironmentTag:
+        default: "環境名"
+      VpcCidr:
+        default: "VPC CIDR"
+      PrivateSubnetCidr:
+        default: "プライベートサブネット CIDR"
+      AvailabilityZone:
+        default: "アベイラビリティゾーン"
+      InstanceType:
+        default: "インスタンスタイプ"
+      LatestAmiId:
+        default: "AMI ID"
+
 Parameters:
+  ProjectTag:
+    Type: String
+    Default: demo
+    Description: プロジェクト名（リソースのタグに使用）
+    AllowedPattern: '^[a-zA-Z0-9-_]+$'
+    ConstraintDescription: 英数字、ハイフン、アンダースコアのみ使用可能
+
+  EnvironmentTag:
+    Type: String
+    Default: development
+    Description: 環境名（リソースのタグに使用）
+    AllowedValues:
+      - development
+      - staging
+      - production
+    ConstraintDescription: development, staging, production のいずれかを選択
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: VPCのCIDRブロック
+    AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+    ConstraintDescription: 有効なCIDR形式で入力してください
+
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: プライベートサブネットのCIDRブロック
+    AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+    ConstraintDescription: 有効なCIDR形式で入力してください
+
+  AvailabilityZone:
+    Type: String
+    Default: us-east-1a
+    Description: プライベートサブネットを配置するアベイラビリティゾーン
+    AllowedValues:
+      - us-east-1a
+      - us-east-1b
+      - us-east-1c
+      - us-east-1d
+      - us-east-1e
+      - us-east-1f
+    ConstraintDescription: us-east-1リージョンの有効なアベイラビリティゾーンを選択してください
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2インスタンスタイプ
+    AllowedValues:
+      - t3.nano
+      - t3.micro
+      - t3.small
+      - t3.medium
+    ConstraintDescription: t3ファミリーのインスタンスタイプを選択してください
+
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    Description: 最新のAmazon Linux 2 AMI ID
 
 Resources:
   # VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/16
+      CidrBlock: !Ref VpcCidr
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: demo-vpc
+          Value: !Sub '${ProjectTag}-vpc'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
 
   # プライベートサブネット
   PrivateSubnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: us-east-1a
+      CidrBlock: !Ref PrivateSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
       Tags:
         - Key: Name
-          Value: demo-private-subnet
+          Value: !Sub '${ProjectTag}-private-subnet'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
 
   # Systems Manager用VPCエンドポイント (SSM)
   SSMVPCEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcId: !Ref VPC
-      ServiceName: com.amazonaws.us-east-1.ssm
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
       VpcEndpointType: Interface
       SubnetIds:
         - !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref VPCEndpointSecurityGroup
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssm:SendCommand'
+              - 'ssm:ListCommandInvocations'
+              - 'ssm:DescribeInstanceInformation'
+              - 'ssm:GetDeployablePatchSnapshotForInstance'
+              - 'ssm:GetDefaultPatchBaseline'
+              - 'ssm:GetManifest'
+              - 'ssm:GetParameter'
+              - 'ssm:GetParameters'
+              - 'ssm:ListAssociations'
+              - 'ssm:ListInstanceAssociations'
+              - 'ssm:PutInventory'
+              - 'ssm:PutComplianceItems'
+              - 'ssm:PutConfigurePackageResult'
+              - 'ssm:UpdateAssociationStatus'
+              - 'ssm:UpdateInstanceAssociationStatus'
+            Resource: '*'
 
   # Systems Manager Messages用VPCエンドポイント
   SSMMessagesVPCEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcId: !Ref VPC
-      ServiceName: com.amazonaws.us-east-1.ssmmessages
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
       VpcEndpointType: Interface
       SubnetIds:
         - !Ref PrivateSubnet
@@ -58,7 +184,7 @@ Resources:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcId: !Ref VPC
-      ServiceName: com.amazonaws.us-east-1.ec2messages
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
       VpcEndpointType: Interface
       SubnetIds:
         - !Ref PrivateSubnet
@@ -79,7 +205,13 @@ Resources:
           Description: HTTPS from EC2 instances
       Tags:
         - Key: Name
-          Value: demo-vpc-endpoint-sg
+          Value: !Sub '${ProjectTag}-vpc-endpoint-sg'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
 
   # EC2インスタンス用セキュリティグループ
   InstanceSecurityGroup:
@@ -91,16 +223,23 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: 10.0.0.0/16
+          CidrIp: !Ref VpcCidr
           Description: HTTPS to VPC endpoints
       Tags:
         - Key: Name
-          Value: demo-instance-sg
+          Value: !Sub '${ProjectTag}-instance-sg'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
 
   # IAMロール (Systems Manager用)
   EC2Role:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectTag}-ec2-ssm-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -112,12 +251,19 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Tags:
         - Key: Name
-          Value: demo-ec2-role
+          Value: !Sub '${ProjectTag}-ec2-role'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
 
   # インスタンスプロファイル
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      InstanceProfileName: !Sub '${ProjectTag}-ec2-instance-profile-${AWS::Region}'
       Roles:
         - !Ref EC2Role
 
@@ -126,11 +272,103 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref LatestAmiId
-      InstanceType: t3.micro
+      InstanceType: !Ref InstanceType
       SubnetId: !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref InstanceSecurityGroup
       IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y amazon-ssm-agent
+          systemctl enable amazon-ssm-agent
+          systemctl start amazon-ssm-agent
+          
+          # SSM Agentの状態確認
+          systemctl status amazon-ssm-agent
+          
+          # ログにインスタンス情報を記録
+          echo "$(date): Instance ${AWS::StackName} started successfully" >> /var/log/cloudformation-init.log
+          echo "Project: ${ProjectTag}" >> /var/log/cloudformation-init.log
+          echo "Environment: ${EnvironmentTag}" >> /var/log/cloudformation-init.log
       Tags:
         - Key: Name
-          Value: demo-instance
+          Value: !Sub '${ProjectTag}-instance'
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: CreatedBy
+          Value: CloudFormation
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcId'
+
+  PrivateSubnetId:
+    Description: プライベートサブネット ID
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnetId'
+
+  InstanceId:
+    Description: EC2インスタンス ID
+    Value: !Ref Instance
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceId'
+
+  InstanceSecurityGroupId:
+    Description: EC2インスタンスのセキュリティグループ ID
+    Value: !Ref InstanceSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceSecurityGroupId'
+
+  VPCEndpointSecurityGroupId:
+    Description: VPCエンドポイントのセキュリティグループ ID
+    Value: !Ref VPCEndpointSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCEndpointSecurityGroupId'
+
+  SSMVPCEndpointId:
+    Description: SSM VPCエンドポイント ID
+    Value: !Ref SSMVPCEndpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-SSMVPCEndpointId'
+
+  SSMMessagesVPCEndpointId:
+    Description: SSM Messages VPCエンドポイント ID
+    Value: !Ref SSMMessagesVPCEndpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-SSMMessagesVPCEndpointId'
+
+  EC2MessagesVPCEndpointId:
+    Description: EC2 Messages VPCエンドポイント ID
+    Value: !Ref EC2MessagesVPCEndpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2MessagesVPCEndpointId'
+
+  IAMRoleArn:
+    Description: EC2用IAMロールのARN
+    Value: !GetAtt EC2Role.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-IAMRoleArn'
+
+  SSMSessionManagerCommand:
+    Description: Systems Manager Session Managerでの接続コマンド
+    Value: !Sub 'aws ssm start-session --target ${Instance}'
+
+  ProjectTag:
+    Description: プロジェクト名
+    Value: !Ref ProjectTag
+    Export:
+      Name: !Sub '${AWS::StackName}-ProjectTag'
+
+  EnvironmentTag:
+    Description: 環境名
+    Value: !Ref EnvironmentTag
+    Export:
+      Name: !Sub '${AWS::StackName}-EnvironmentTag'
