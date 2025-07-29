@@ -6,22 +6,46 @@
 
 ```
 cfn/
-├── vpc-ec2-demo.yaml                 # VPC + EC2のCloudFormationテンプレート
+├── vpc-ec2-demo.yml                  # VPC + EC2のCloudFormationテンプレート（プライベートサブネット + SSM）
 └── README.md                         # このファイル
 ```
+
+## インフラ構成
+
+このテンプレートは以下のリソースを作成します：
+
+### ネットワーク
+- **VPC**: 10.0.0.0/16 のCIDRブロック
+- **プライベートサブネット**: 10.0.1.0/24 (us-east-1a)
+- **VPCエンドポイント**: SSM、SSMMessages、EC2Messages用（インターフェース型）
+
+### セキュリティ
+- **VPCエンドポイント用セキュリティグループ**: EC2からのHTTPS(443)通信を許可
+- **EC2インスタンス用セキュリティグループ**: VPCエンドポイントへのHTTPS(443)通信を許可
+
+### コンピュート
+- **EC2インスタンス**: t3.micro、Amazon Linux 2（最新AMI）
+- **IAMロール**: AmazonSSMManagedInstanceCore ポリシーを付与
+- **インスタンスプロファイル**: EC2にIAMロールを関連付け
+
+### 特徴
+- **完全プライベート環境**: インターネットゲートウェイやNATゲートウェイなし
+- **SSM接続**: VPCエンドポイント経由でSystems Manager Session Managerを使用
+- **セキュア**: 最小権限の原則に基づくセキュリティグループ設定
 
 ## CloudFormationテンプレートの実行
 
 ### 1. テンプレートの検証
 ```bash
-aws cloudformation validate-template --template-body file://vpc-ec2-demo.yaml
+aws cloudformation validate-template --template-body file://vpc-ec2-demo.yml
 ```
 
 ### 2. スタックの作成
 ```bash
 aws cloudformation create-stack \
     --stack-name vpc-ec2-demo \
-    --template-body file://vpc-ec2-demo.yaml
+    --template-body file://vpc-ec2-demo.yml \
+    --capabilities CAPABILITY_IAM
 ```
 
 ### 3. 作成状況の確認
@@ -36,7 +60,19 @@ aws cloudformation describe-stack-resources --stack-name vpc-ec2-demo
 aws cloudformation describe-stack-events --stack-name vpc-ec2-demo
 ```
 
-### 4. スタックの削除
+### 4. EC2インスタンスへの接続
+```bash
+# Session Manager経由でEC2に接続
+aws ssm start-session --target <instance-id>
+
+# インスタンスIDの確認
+aws ec2 describe-instances \
+    --filters "Name=tag:Name,Values=demo-instance" \
+    --query "Reservations[*].Instances[*].InstanceId" \
+    --output text
+```
+
+### 5. スタックの削除
 ```bash
 aws cloudformation delete-stack --stack-name vpc-ec2-demo
 ```
@@ -49,3 +85,9 @@ aws cloudformation delete-stack --stack-name vpc-ec2-demo
 - **自動ロールバック**: エラー時は自動で元の状態に復旧
 - **スタック管理**: 関連リソースをまとめて管理・削除
 - **再現性**: 同じテンプレートで何度でも同じ環境を作成
+
+## 注意事項
+
+- このテンプレートはus-east-1リージョン向けに設定されています
+- 他のリージョンで使用する場合は、VPCエンドポイントのサービス名とアベイラビリティゾーンを変更してください
+- IAMロールの作成のため、`--capabilities CAPABILITY_IAM`フラグが必要です
