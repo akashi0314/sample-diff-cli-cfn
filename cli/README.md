@@ -55,69 +55,131 @@ aws cloudformation wait stack-create-complete --stack-name demo-vpc-ec2-stack
 - **柔軟性**: 複雑な条件分岐やエラーハンドリング
 - **デバッグしやすい**: 各ステップで状態確認可能
 - **学習効果**: AWSサービスの深い理解につながる
+- **冪等性実装**: 既存リソースの検出と再利用
+- **詳細なログ**: ステップ毎の実行状況表示
 
 ### デメリット ❌
 - **手続き的**: 「どのように作るか」を詳細に記述
 - **依存関係管理**: 手動で順序を管理
 - **エラー処理**: 失敗時の cleanup が複雑
-- **再実行の課題**: 冪等性の担保が困難
+- **リソース追跡**: 手動でリソースIDを管理
 
-### 実行スクリプト
+### 🗂️ ファイル構成
 
-AWS CLIによる構築は以下のスクリプトファイルに分離されています：
-
-1. **`config.env`** - 設定ファイル（環境変数）
-2. **`create-infrastructure.sh`** - AWS CLI インフラ構築用メインスクリプト
-3. **`cloudformation-deploy.sh`** - CloudFormation実行用スクリプト
-
-### スクリプトファイルの使用方法
-
-#### 1. 実行権限の付与
+#### 1. **`config.env`** - 設定ファイル
+環境変数によるパラメータ設定
 ```bash
-chmod +x create-infrastructure.sh
-chmod +x cloudformation-deploy.sh
+export AWS_REGION="us-east-1"
+export PROJECT_TAG="CloudFormationDemo"
+export VPC_CIDR="10.0.0.0/16"
+export INSTANCE_TYPE="t3.micro"
 ```
 
-#### 2. AWS CLI による構築
-```bash
-# 基本実行
-./create-infrastructure.sh
+#### 2. **`create.sh`** - メインスクリプト
+AWS CLI によるインフラ構築・削除用スクリプト
+- 冪等性対応（既存リソースの検出・再利用）
+- リソース追跡（JSON ファイルによる管理）
+- 詳細なエラーハンドリング
+- カラーログ出力
 
-# カスタムオプション
-./create-infrastructure.sh --region ap-northeast-1 --profile production
+#### 3. **`cli-resource-ids.json`** - リソース追跡ファイル（自動生成）
+作成されたリソースのIDと名前を管理
+```json
+{
+  "vpc": {"id": "vpc-xxx", "name": "demo-cli-vpc"},
+  "ec2_instance": {"id": "i-xxx", "name": "demo-cli-instance"}
+}
 ```
 
-#### 3. CloudFormation による構築
+#### 4. **`cli-creation-info.txt`** - 構築結果ファイル（自動生成）
+構築完了時の詳細情報とSSM接続コマンド
+
+---
+
+## 🚀 AWS CLI スクリプトの使用方法
+
+### 1. 実行権限の付与
 ```bash
-# スタック作成
-./cloudformation-deploy.sh
-
-# スタック更新
-./cloudformation-deploy.sh --update
-
-# スタック削除
-./cloudformation-deploy.sh --delete
-
-# カスタム設定
-./cloudformation-deploy.sh -s my-stack -t my-template.yaml --profile production
+chmod +x create.sh
 ```
+
+### 2. インフラ構築
+```bash
+# 基本実行（デフォルト設定）
+./create.sh
+
+# プロファイル指定
+./create.sh --profile production
+
+# リージョン指定
+./create.sh --region ap-northeast-1
+
+# プロファイルとリージョン指定
+./create.sh --profile production --region ap-northeast-1
+```
+
+### 3. リソース削除
+```bash
+# 作成したリソースを削除
+./create.sh --delete
+
+# プロファイル指定で削除
+./create.sh --delete --profile production
+```
+
+### 4. ヘルプ表示
+```bash
+./create.sh --help
+```
+
+---
+
+## 🔄 冪等性とリソース管理
+
+### AWS CLI スクリプトの冪等性機能
+- **既存リソース検出**: 同名リソースが存在する場合は再利用
+- **リソース追跡**: `cli-resource-ids.json` でリソースID管理
+- **安全な再実行**: 途中で失敗しても再実行可能
+
+### リソース削除の安全性
+- **追跡ファイル確認**: 削除時は追跡ファイルの存在を確認
+- **順序付き削除**: 依存関係を考慮した削除順序
+- **エラー許容**: 一部削除失敗でも処理継続
 
 ---
 
 ## 📊 比較表
 
-| 項目 | CloudFormation | AWS CLI |
+| 項目 | CloudFormation | AWS CLI（本実装） |
 |------|----------------|---------|
-| **記述方法** | 宣言的（YAML/JSON） | 手続き的（Bash/Python等） |
+| **記述方法** | 宣言的（YAML/JSON） | 手続き的（Bash） |
 | **学習コスト** | 中〜高 | 低〜中 |
 | **構築時間** | 並列実行で高速 | 逐次実行で時間がかかる |
-| **エラー処理** | 自動ロールバック | 手動で cleanup 必要 |
-| **可読性** | 高（構造化） | 中（スクリプト次第） |
-| **再利用性** | 高（パラメータ化） | 中（変数化が必要） |
-| **変更管理** | 差分適用 | 全体を意識した変更 |
-| **デバッグ** | 難しい | 容易 |
-| **冪等性** | 保証される | 実装次第 |
-| **依存関係** | 自動解決 | 手動管理 |
+| **エラー処理** | 自動ロールバック | エラーハンドリング実装済み |
+| **可読性** | 高（構造化） | 高（詳細ログ） |
+| **再利用性** | 高（パラメータ化） | 高（設定ファイル化） |
+| **変更管理** | 差分適用 | 冪等性実装済み |
+| **デバッグ** | 難しい | 容易（ステップ毎ログ） |
+| **冪等性** | 保証される | 実装済み |
+| **依存関係** | 自動解決 | 手動管理（実装済み） |
+| **リソース追跡** | 自動 | JSON ファイル管理 |
+| **削除機能** | 一括削除 | 順序付き個別削除 |
+
+---
+
+## 🎯 実装されている特徴
+
+### AWS CLI スクリプトの高度な機能
+- **認証方式自動判定**: 一時クレデンシャル、プロファイル、デフォルト認証
+- **AMI自動選択**: 最新のAmazon Linux AMI IDを動的取得
+- **VPCエンドポイント**: SSM接続用の3つのエンドポイント自動作成
+- **セキュリティ設定**: 最小権限の原則に基づくポリシー設定
+- **待機処理**: IAM伝播、VPCエンドポイント準備の自動待機
+
+### エラーハンドリング
+- **詳細なエラー情報**: ライン番号、コマンド、終了コード表示
+- **コールスタック**: エラー発生箇所の特定
+- **トラブルシューティング**: 解決方法の自動表示
 
 ---
 
@@ -132,16 +194,27 @@ chmod +x cloudformation-deploy.sh
 ### AWS CLI を選ぶべき場面
 - **学習目的**: AWSサービスの動作理解
 - **プロトタイピング**: 迅速な検証
-- **一時的な構築**: 短期間のテスト環境
 - **細かい制御**: 複雑な条件分岐が必要
+- **カスタマイズ**: 独自のロジック実装
 
 ---
 
 ## 💡 実習課題
 
-1. **基本課題**: 両方の方法で同じ環境を構築し、結果を比較
-2. **応用課題**: セキュリティグループのルールを1つ追加する際の手順を比較
-3. **発展課題**: 環境削除時の手順と安全性を比較
+### 基本課題
+1. **環境構築**: 両方の方法で同じ環境を構築し、結果を比較
+2. **SSM接続**: 作成されたEC2インスタンスにSSM Session Managerで接続
+3. **リソース確認**: AWSコンソールで作成されたリソースを確認
+
+### 応用課題
+1. **設定変更**: `config.env` でインスタンスタイプを変更して再実行
+2. **セキュリティ強化**: セキュリティグループのルールを追加
+3. **冪等性確認**: 同じスクリプトを複数回実行して冪等性を確認
+
+### 発展課題
+1. **カスタマイズ**: 追加のVPCエンドポイント（S3等）を実装
+2. **マルチAZ**: 複数のアベイラビリティゾーンへの展開
+3. **モニタリング**: CloudWatch Logs エージェントの自動設定
 
 ---
 
@@ -149,7 +222,33 @@ chmod +x cloudformation-deploy.sh
 
 CloudFormationとAWS CLIは、それぞれ異なる強みを持つツールです。
 
-- **CloudFormation**: Infrastructure as Code の実現に最適
-- **AWS CLI**: AWSサービスの学習と細かい制御に最適
+### CloudFormation
+- **Infrastructure as Code** の実現に最適
+- 宣言的な記述で **保守性が高い**
+- **本番環境** での利用に適している
+
+### AWS CLI（本実装）
+- **学習効果** が非常に高い
+- **細かい制御** が可能
+- **デバッグ** しやすい構造
 
 実際のプロジェクトでは、要件に応じて適切なツールを選択することが重要です。多くの場合、両方を組み合わせて使用することで、最適な結果を得ることができます。
+
+---
+
+## 🔗 接続例
+
+### SSM Session Manager接続
+```bash
+# スクリプト実行後に生成される接続コマンド
+aws ssm start-session --target i-xxxxxxxxx --region us-east-1
+```
+
+### 作成されたリソースの確認
+```bash
+# リソース一覧表示
+cat cli-resource-ids.json | jq
+
+# 構築情報表示
+cat cli-creation-info.txt
+```
