@@ -35,9 +35,13 @@ cfn/
 
 ## CloudFormationテンプレートの実行
 
+**重要**: このテンプレートはus-east-1リージョンで実行してください。
+
 ### 1. テンプレートの検証
 ```bash
-aws cloudformation validate-template --template-body file://vpc-ec2-demo.yml
+aws cloudformation validate-template \
+    --template-body file://vpc-ec2-demo.yml \
+    --region us-east-1
 ```
 
 ### 2. スタックの作成
@@ -45,36 +49,46 @@ aws cloudformation validate-template --template-body file://vpc-ec2-demo.yml
 aws cloudformation create-stack \
     --stack-name vpc-ec2-demo \
     --template-body file://vpc-ec2-demo.yml \
-    --capabilities CAPABILITY_IAM
+    --capabilities CAPABILITY_IAM \
+    --region us-east-1
 ```
 
 ### 3. 作成状況の確認
 ```bash
 # スタック全体の状況
-aws cloudformation describe-stacks --stack-name vpc-ec2-demo
+aws cloudformation describe-stacks \
+    --stack-name vpc-ec2-demo \
+    --region us-east-1
 
 # リソース個別の状況
-aws cloudformation describe-stack-resources --stack-name vpc-ec2-demo
+aws cloudformation describe-stack-resources \
+    --stack-name vpc-ec2-demo \
+    --region us-east-1
 
 # スタックイベントの確認
-aws cloudformation describe-stack-events --stack-name vpc-ec2-demo
+aws cloudformation describe-stack-events \
+    --stack-name vpc-ec2-demo \
+    --region us-east-1
 ```
 
 ### 4. EC2インスタンスへの接続
 ```bash
 # Session Manager経由でEC2に接続
-aws ssm start-session --target <instance-id>
+aws ssm start-session --target <instance-id> --region us-east-1
 
 # インスタンスIDの確認
 aws ec2 describe-instances \
     --filters "Name=tag:Name,Values=demo-instance" \
     --query "Reservations[*].Instances[*].InstanceId" \
-    --output text
+    --output text \
+    --region us-east-1
 ```
 
 ### 5. スタックの削除
 ```bash
-aws cloudformation delete-stack --stack-name vpc-ec2-demo
+aws cloudformation delete-stack \
+    --stack-name vpc-ec2-demo \
+    --region us-east-1
 ```
 
 ## CloudFormationの特徴
@@ -88,6 +102,9 @@ aws cloudformation delete-stack --stack-name vpc-ec2-demo
 
 ## 注意事項
 
-- このテンプレートはus-east-1リージョン向けに設定されています
-- 他のリージョンで使用する場合は、VPCエンドポイントのサービス名とアベイラビリティゾーンを変更してください
-- IAMロールの作成のため、`--capabilities CAPABILITY_IAM`フラグが必要です
+- **リージョン**: このテンプレートはus-east-1リージョン専用です
+- **他リージョンでの使用**: 他のリージョンで使用する場合は以下を変更してください：
+  - VPCエンドポイントのサービス名（`com.amazonaws.us-east-1.*` の部分）
+  - アベイラビリティゾーン（`us-east-1a` の部分）
+- **権限**: IAMロールの作成のため、`--capabilities CAPABILITY_IAM`フラグが必要です
+- **AWS CLI設定**: AWSプロファイルでus-east-1リージョンが設定されていることを確認してください
