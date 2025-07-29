@@ -879,8 +879,8 @@ delete_resources() {
         endpoint_id=$(get_resource_id "$endpoint_type")
         if [[ -n "$endpoint_id" ]]; then
             log_info "2. VPCエンドポイントを削除中: $endpoint_id"
-            aws ec2 delete-vpc-endpoint \
-                --vpc-endpoint-id "$endpoint_id" \
+            aws ec2 delete-vpc-endpoints \
+                --vpc-endpoint-ids "$endpoint_id" \
                 --region "$AWS_REGION"
         fi
     done
