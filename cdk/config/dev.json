@@ -1,0 +1,8 @@
+{
+  "projectTag": "cdk",
+  "environmentTag": "development",
+  "vpcCidr": "10.0.0.0/16",
+  "privateSubnetCidr": "10.0.1.0/24",
+  "availabilityZone": "us-east-1a",
+  "instanceType": "t3.micro"
+}
